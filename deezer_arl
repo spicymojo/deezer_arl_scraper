@@ -1,0 +1,56 @@
+import requests
+from bs4 import BeautifulSoup
+import datetime
+
+def generate_html(url):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    elements = soup.find_all(class_='ntable')
+
+    html_content = """
+    <html>
+    <head>
+        <title>Paco y sus ARL</title>
+        <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 15px;
+            text-align: left;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        </style>
+    </head>
+    <body>
+    <h1>Paco y sus ARL</h1>
+    <table>
+    """
+    html_content += "<tr><th>Plan</th><th>Expiry</th><th>ARL</th></tr>"
+    rows_to_print = 0
+
+    for element in elements:
+        rows = element.find_all('tr')
+        for row in rows:
+            columns = [column.text for column in row.find_all('td')[1:-1]]  # Skip the first column
+            row_content = (','.join(columns).lstrip(',').rstrip(','))
+
+            if "Deezer Premium" in row_content and rows_to_print < 15:
+                rows_to_print += 1
+                html_content += "<tr>"
+                for column in columns:
+                    html_content += f"<td>{column}</td>"
+                html_content += "</tr>"
+
+    html_content += "</table></body></html>"
+
+    with open('index.html', 'w') as f:
+        f.write(html_content)
+        print('Generated HTML file at ' + datetime.datetime.now().strftime('%c'))
+
+# Use the functions
+generate_html('https://rentry.org/firehawk52#deezer-arls')
