@@ -1,7 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackContext, CallbackQueryHandler
-from deezer_arl import get_arl_list  # Import the function from your existing script
+from deezer_arl import get_arl  # Import the function from your existing script
 
 # Enable logging
 logging.basicConfig(
@@ -36,12 +36,12 @@ async def dame_arl(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id  # Get the chat ID from the update
     await context.bot.send_message(chat_id=chat_id, text="Buscando ARLs...")
     url = 'https://rentry.org/firehawk52#deezer-arls'
-    arl_list = get_arl_list(url)
+    arl = get_arl(url)
 
-    if len(arl_list) > 0:
-        telegram_message = '\n\n'.join([str(arl) for arl in arl_list])
-    else:
+    if arl is None:
         telegram_message = 'No se encontraron ARLs.'
+    else:
+        telegram_message = str(arl)
 
     await context.bot.send_message(chat_id=chat_id, text="ARL encontrado!:\n " + str(telegram_message), parse_mode='MarkdownV2')
 
