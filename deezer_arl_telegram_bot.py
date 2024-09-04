@@ -2,6 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackContext, CallbackQueryHandler
 from deezer_arl import get_arl  # Import the function from your existing script
+import os
 
 # Enable logging
 logging.basicConfig(
@@ -11,8 +12,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # List of allowed user IDs
-ALLOWED_USERS = [userid1,userid2]
-BOT_TOKEN = 'bot_token'
+ALLOWED_USERS = os.getenv('ALLOWED_USERS')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 def restricted(func):
     async def wrapped(update: Update, context: CallbackContext, *args, **kwargs):
