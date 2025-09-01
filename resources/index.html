@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deezer ARL Extractor</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: 1rem;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+        h1 {
+            color: #1877f2;
+            margin-bottom: 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #1877f2;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #166fe5;
+        }
+        .btn:disabled {
+            background-color: #a0bdf5;
+            cursor: not-allowed;
+        }
+        .status-box, .result-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: left;
+        }
+        .status-box {
+            background-color: #e7f3ff;
+            border: 1px solid #d1e7fd;
+            font-weight: 500;
+        }
+        .result-box {
+            background-color: #d1e7dd;
+            border: 1px solid #badbcc;
+            display: none; /* Hidden by default */
+        }
+        #arl-output {
+            font-family: "Courier New", Courier, monospace;
+            background-color: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            /* --- MODIFICATION HERE --- */
+            overflow-x: auto;   /* Add horizontal scrollbar if content is too wide */
+            white-space: nowrap;  /* Prevent text from wrapping to the next line */
+            border: 2px solid transparent; /* Placeholder for copy feedback */
+            transition: border-color 0.2s;
+        }
+        .copy-btn {
+            display: block;
+            width: auto;
+            padding: 0.5rem 1rem;
+            margin-top: 0.5rem;
+            background-color: #28a745;
+        }
+        .copy-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <h1>Deezer ARL Extractor</h1>
+    <form id="login-form">
+        <div class="form-group">
+            <label for="email">Deezer Email</label>
+            <input type="email" id="email" placeholder="email@gmail.com">
+        </div>
+        <div class="form-group">
+            <label for="password">Deezer Password</label>
+            <input type="password" id="password" placeholder="password">
+        </div>
+        <button type="submit" class="btn" id="submit-btn">Get ARL Cookie</button>
+    </form>
+
+    <div class="status-box" id="status-container" style="display: none;">
+        <h4>Status:</h4>
+        <div id="status-log">Initializing...</div>
+    </div>
+
+    <div class="result-box" id="result-container">
+        <h4>Success! Your ARL Cookie:</h4>
+        <pre id="arl-output"></pre>
+        <button class="btn copy-btn" id="copy-btn">Copy to Clipboard</button>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const socket = io();
+        const form = document.getElementById('login-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const statusContainer = document.getElementById('status-container');
+        const statusLog = document.getElementById('status-log');
+        const resultContainer = document.getElementById('result-container');
+        const arlOutput = document.getElementById('arl-output');
+        const copyBtn = document.getElementById('copy-btn');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            // Reset UI
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            statusContainer.style.display = 'block';
+            resultContainer.style.display = 'none';
+            statusLog.textContent = 'Connecting to server...';
+
+            socket.emit('start_scraping', { email: email, password: password });
+        });
+
+        socket.on('status', function(data) {
+            statusLog.textContent = data.msg;
+        });
+
+        socket.on('result', function(data) {
+            arlOutput.textContent = data.arl;
+            resultContainer.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Get ARL Cookie';
+        });
+
+        copyBtn.addEventListener('click', function() {
+            navigator.clipboard.writeText(arlOutput.textContent).then(() => {
+                copyBtn.textContent = 'Copied!';
+                arlOutput.style.borderColor = '#28a745'; // Green border for feedback
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy to Clipboard';
+                    arlOutput.style.borderColor = 'transparent'; // Reset border
+                }, 2000);
+            }, () => {
+                // Fallback for older browsers or if permissions fail
+                alert('Failed to copy!');
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
