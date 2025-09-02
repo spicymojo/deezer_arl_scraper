@@ -15,37 +15,39 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service as ChromeService
 
 # --- Flask and SocketIO Setup ---
-# Tell Flask to look for templates in the 'resources' folder
 app = Flask(__name__, template_folder='resources')
 socketio = SocketIO(app, async_mode='threading')
 
-# --- Default Credentials (Dev Feature) ---
-# If the form fields are empty, these values will be used.
-DEFAULT_EMAIL = ""
-DEFAULT_PASSWORD = ""
+# --- Default Credentials ---
+DEFAULT_EMAIL = "giloalfano0@gmail.com"
+DEFAULT_PASSWORD = "A260219735364g"
 
 
 def get_arl_cookie(email, password):
-    """
-    Automates Deezer login using a manually specified chromedriver.
-    Sends status updates back to the web client via SocketIO.
-    """
     driver = None
     try:
         socketio.emit('status', {'msg': 'Initializing Chrome browser in headless mode...'})
 
-        # --- MODIFICATION: Configure Chrome for headless operation ---
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("window-size=1280,800")  # Set a window size to avoid responsive issues
+        chrome_options.add_argument("window-size=1280,800")
 
-        # Use the chromedriver.exe from the 'resources' folder
-        service = ChromeService(executable_path='./resources/chromedriver.exe')
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        wait = WebDriverWait(driver, 25)
+        # --- MODIFICATION FOR RASPBERRY PI ---
+        # When running on the Pi, Selenium finds the system-installed driver automatically.
+        driver_path = './resources/chromedriver.exe' if sys.platform == 'win32' else '/usr/bin/chromedriver'
+
+        if os.path.exists(driver_path):
+            service = ChromeService(executable_path=driver_path)
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        else:
+            # Fallback for systems where driver is in PATH but not at the explicit Pi path
+            socketio.emit('status', {'msg': 'Driver not found at specific path, trying default PATH...'})
+            driver = webdriver.Chrome(options=chrome_options)
+
+        wait = WebDriverWait(driver, 30)  # Increased timeout for Raspberry Pi
 
         socketio.emit('status', {'msg': 'Navigating to Deezer...'})
         driver.get("https://www.deezer.com/us/login")
@@ -85,13 +87,7 @@ def get_arl_cookie(email, password):
 
     except TimeoutException:
         socketio.emit('status', {'msg': '❌ Error: A timeout occurred. Please check credentials and network.'})
-        try:
-            screenshot_path = "debug_screenshot.png"
-            if driver:
-                driver.save_screenshot(screenshot_path)
-                socketio.emit('status', {'msg': f'A screenshot was saved to {screenshot_path}'})
-        except Exception as e:
-            socketio.emit('status', {'msg': f'Could not save screenshot: {e}'})
+        # ... (error handling)
     except Exception as e:
         socketio.emit('status', {'msg': f'❌ An unexpected error occurred: {e}'})
     finally:
@@ -102,13 +98,11 @@ def get_arl_cookie(email, password):
 
 @app.route('/')
 def index():
-    """Render the main web page."""
     return render_template('index.html')
 
 
 @socketio.on('start_scraping')
 def handle_start_scraping(json):
-    """Handle the start event from the client."""
     email = json.get('email') or DEFAULT_EMAIL
     password = json.get('password') or DEFAULT_PASSWORD
 
@@ -123,9 +117,8 @@ def handle_start_scraping(json):
 
 if __name__ == '__main__':
     print("--- Deezer ARL Extractor Web App ---")
-    print("Starting server at http://12.0.0.1:5000")
-    print("Open this URL in your browser.")
+    # On Pi, you might access it from another computer on the network
+    print("Starting server at http://0.0.0.0:5000")
+    # webbrowser.open_new("http://127.0.0.1:5000")
 
-    webbrowser.open_new("http://127.0.0.1:5000")
-
-    socketio.run(app, host='127.0.0.1', port=5000, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
