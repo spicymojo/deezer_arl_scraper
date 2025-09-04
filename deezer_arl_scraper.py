@@ -4,23 +4,30 @@ import time
 import random
 import webbrowser
 from threading import Thread
-from flask import Flask, render_template, request
-from flask_socketio import SocketIO
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service as ChromeService
+
+try:
+    from flask import Flask, render_template, request
+    from flask_socketio import SocketIO
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service as ChromeService
+except ImportError:
+    print("\n--- Missing Dependencies ---")
+    print("Please install the required packages by running:")
+    print("pip install -r requirements.txt")
+    sys.exit(1)
 
 # --- Flask and SocketIO Setup ---
 app = Flask(__name__, template_folder='resources')
 socketio = SocketIO(app, async_mode='threading')
 
 # --- Default Credentials ---
-DEFAULT_EMAIL = "giloalfano0@gmail.com"
-DEFAULT_PASSWORD = "A260219735364g"
+DEFAULT_EMAIL = ""
+DEFAULT_PASSWORD = ""
 
 
 def get_arl_cookie(email, password):
@@ -35,19 +42,16 @@ def get_arl_cookie(email, password):
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("window-size=1280,800")
 
-        # --- MODIFICATION FOR RASPBERRY PI ---
-        # When running on the Pi, Selenium finds the system-installed driver automatically.
         driver_path = './resources/chromedriver.exe' if sys.platform == 'win32' else '/usr/bin/chromedriver'
 
         if os.path.exists(driver_path):
             service = ChromeService(executable_path=driver_path)
             driver = webdriver.Chrome(service=service, options=chrome_options)
         else:
-            # Fallback for systems where driver is in PATH but not at the explicit Pi path
-            socketio.emit('status', {'msg': 'Driver not found at specific path, trying default PATH...'})
+            socketio.emit('status', {'msg': 'Driver not at specific path, trying default PATH...'})
             driver = webdriver.Chrome(options=chrome_options)
 
-        wait = WebDriverWait(driver, 30)  # Increased timeout for Raspberry Pi
+        wait = WebDriverWait(driver, 30)
 
         socketio.emit('status', {'msg': 'Navigating to Deezer...'})
         driver.get("https://www.deezer.com/us/login")
@@ -86,8 +90,7 @@ def get_arl_cookie(email, password):
             socketio.emit('status', {'msg': '❌ Error: Login successful, but could not find arl cookie.'})
 
     except TimeoutException:
-        socketio.emit('status', {'msg': '❌ Error: A timeout occurred. Please check credentials and network.'})
-        # ... (error handling)
+        socketio.emit('status', {'msg': '❌ Error: A timeout occurred. Check credentials or network.'})
     except Exception as e:
         socketio.emit('status', {'msg': f'❌ An unexpected error occurred: {e}'})
     finally:
@@ -117,8 +120,11 @@ def handle_start_scraping(json):
 
 if __name__ == '__main__':
     print("--- Deezer ARL Extractor Web App ---")
-    # On Pi, you might access it from another computer on the network
     print("Starting server at http://0.0.0.0:5000")
-    # webbrowser.open_new("http://127.0.0.1:5000")
+
+    # Auto-open browser only on non-Linux systems for convenience
+    if sys.platform != 'linux':
+        webbrowser.open_new("http://127.0.0.1:5000")
 
     socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+
